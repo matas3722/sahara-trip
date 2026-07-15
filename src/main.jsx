@@ -1,221 +1,56 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowDown, Bus, Plane, CarFront, MapPin, Music2, Smartphone, Moon, Navigation, Gauge, Upload, ImagePlus, X } from 'lucide-react';
+import { MapContainer, Marker, Popup, Polyline, TileLayer, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { ArrowDown, ArrowLeft, ArrowRight, Bus, Camera, CarFront, ChevronDown, ChevronUp, Clock3, Gauge, ImagePlus, Loader2, Map, MapPin, Maximize2, Moon, Music2, Navigation, Plane, Plus, Search, Smartphone, Trash2, Upload, X } from 'lucide-react';
+import { cloudReady, supabase, tripId } from './lib/supabase';
 import './styles.css';
 
-const crew = [
-  {
-    name: 'Matas',
-    role: 'Kelionės organizatorius',
-    image: '/images/matas.png',
-    icon: Gauge,
-    text: 'Vairuotojas, planuotojas, rezervacijų medžiotojas ir žmogus, kuris dar prieš išvykstant žino, kur stosim pavalgyti. Dažniausia frazė: „ramiai, viską spėjam“. '
-  },
-  {
-    name: 'Ariana',
-    role: 'Kelionės filmuotoja',
-    image: '/images/ariana.png',
-    icon: Moon,
-    text: 'Pramiega pusę kelionės, bet atsibunda tiksliai tada, kai prasideda gražiausias vaizdas. Atsakinga už video archyvą ir įrodymus, kad tikrai buvom Maroke.'
-  },
-  {
-    name: 'Kornelija',
-    role: 'Fotografė',
-    image: '/images/kornelija.jpg',
-    icon: Smartphone,
-    text: 'Fotografė, turinio kūrėja ir žmogus, kurio telefonas kelionėje dirbs viršvalandžius. Jeigu nėra nuotraukos – vadinasi, nebuvo.'
-  },
-  {
-    name: 'Nojus',
-    role: 'DJ žmogus',
-    image: '/images/nojus.jpg',
-    icon: Music2,
-    text: 'Atsakingas už muziką ir moralinį palaikymą. Su viskuo sutinka dar nebaigus sakinio – todėl tikėtina, kad tik Maroke supras, į ką iš tikrųjų įsivėlė.'
-  },
-  {
-    name: 'Adrijus',
-    role: 'Navigatorius',
-    image: '/images/adrijus.jpg',
-    icon: Navigation,
-    text: 'Kelionėje nemiega, nes kažkas turi tikrinti, ar Matas vėl nepravažiavo posūkio. Google Maps konsultantas, keleivio sėdynės inspektorius ir oficialus „suk čia“ balsas.'
-  }
+const crew=[
+{name:'Matas',role:'Kelionės organizatorius',image:'/images/matas.png',icon:Gauge,text:'Vairuotojas, planuotojas, rezervacijų medžiotojas ir žmogus, kuris dar prieš išvykstant žino, kur stosim pavalgyti. Dažniausia frazė: „ramiai, viską spėjam“.'},
+{name:'Ariana',role:'Kelionės filmuotoja',image:'/images/ariana.png',icon:Moon,text:'Pramiega pusę kelionės, bet atsibunda tiksliai tada, kai prasideda gražiausias vaizdas. Atsakinga už video archyvą ir įrodymus, kad tikrai buvom Maroke.'},
+{name:'Kornelija',role:'Fotografė',image:'/images/kornelija.jpg',icon:Smartphone,text:'Fotografė, turinio kūrėja ir žmogus, kurio telefonas kelionėje dirbs viršvalandžius. Jeigu nėra nuotraukos – vadinasi, nebuvo.'},
+{name:'Nojus',role:'DJ žmogus',image:'/images/nojus.jpg',icon:Music2,text:'Paduosi AUX – gausi festivalį. Su bet kokiu planu sutinka taip greitai, kad kartais tik po valandos paklausia, kur mes išvis važiuojam.'},
+{name:'Adrijus',role:'Navigatorius',image:'/images/adrijus.jpg',icon:Navigation,text:'Kelionėje nemiega, nes kažkas turi stebėti kelią ir Matą. Oficialus posūkių komentatorius: „čia reikėjo sukt“ dažniausiai pasakoma jau pravažiavus.'}
 ];
+const staticRoute=[['Kauno autobusų stotis','Kelionės pradžia',Bus],['Varšuva','Trumpas poilsis ir kelias į oro uostą',MapPin],['Milanas · Malpensa','Persėdimas Italijoje',Plane],['Marakešas','Čia prasideda tikras nuotykis',Plane],['Atlaso kalnai','Posūkiai, vaizdai ir pirmas rimtas testas Dusteriui',CarFront],['Sachara','Pagrindinis kelionės tikslas',MapPin],['Bulgarija','Ilgas persėdimas grįžtant',Plane],['Lenkija','Paskutinis skrydis ir autobusas namo',Plane],['Kaunas','Grįžtam su per daug nuotraukų ir istorijų',Bus]];
 
-const route = [
-  { place: 'Kauno autobusų stotis', note: 'Kelionės pradžia', icon: Bus },
-  { place: 'Varšuva', note: 'Trumpas poilsis ir kelias į oro uostą', icon: MapPin },
-  { place: 'Milanas · Malpensa', note: 'Persėdimas Italijoje', icon: Plane },
-  { place: 'Marakešas', note: 'Čia prasideda tikras nuotykis', icon: Plane },
-  { place: 'Atlaso kalnai', note: 'Posūkiai, vaizdai ir pirmas rimtas testas Dusteriui', icon: CarFront },
-  { place: 'Sachara', note: 'Pagrindinis kelionės tikslas', icon: MapPin },
-  { place: 'Bulgarija', note: 'Ilgas persėdimas grįžtant', icon: Plane },
-  { place: 'Lenkija', note: 'Paskutinis skrydis ir autobusas namo', icon: Plane },
-  { place: 'Kaunas', note: 'Grįžtam su per daug nuotraukų ir istorijų', icon: Bus }
-];
+function useCountdown(target){const[now,setNow]=useState(Date.now());useEffect(()=>{const id=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(id)},[]);return useMemo(()=>{const d=Math.max(0,target.getTime()-now);return{days:Math.floor(d/86400000),hours:Math.floor(d/3600000%24),minutes:Math.floor(d/60000%60),seconds:Math.floor(d/1000%60)}},[now,target])}
+const markerIcon=(n)=>L.divIcon({className:'numbered-marker',html:`<div><span>${n}</span></div>`,iconSize:[34,34],iconAnchor:[17,34],popupAnchor:[0,-32]});
+function FitMap({stops,route,focus}){const map=useMap();useEffect(()=>{if(focus){map.flyTo([focus.latitude,focus.longitude],13,{duration:.8})}},[focus,map]);const fit=useCallback(()=>{const pts=route.length?route:stops.map(s=>[s.latitude,s.longitude]);if(pts.length)map.fitBounds(L.latLngBounds(pts),{padding:[35,35]})},[map,route,stops]);useEffect(()=>{window.__fitSaharaRoute=fit;return()=>delete window.__fitSaharaRoute},[fit]);return null}
 
-function useCountdown(target) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return useMemo(() => {
-    const diff = Math.max(0, target.getTime() - now);
-    return {
-      days: Math.floor(diff / 86400000),
-      hours: Math.floor((diff / 3600000) % 24),
-      minutes: Math.floor((diff / 60000) % 60),
-      seconds: Math.floor((diff / 1000) % 60)
-    };
-  }, [now, target]);
+function TripStudio(){
+ const[stops,setStops]=useState([]),[photos,setPhotos]=useState([]),[query,setQuery]=useState(''),[results,setResults]=useState([]),[searching,setSearching]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(''),[route,setRoute]=useState([]),[routeInfo,setRouteInfo]=useState(null),[focus,setFocus]=useState(null),[viewer,setViewer]=useState(null);
+ const load=useCallback(async()=>{if(!cloudReady)return;const[{data:s,error:se},{data:p,error:pe}]=await Promise.all([supabase.from('trip_stops').select('*').eq('trip_id',tripId).order('position'),supabase.from('trip_photos').select('*').eq('trip_id',tripId).order('created_at')]);if(se||pe)setError(se?.message||pe?.message);else{setStops(s||[]);setPhotos(p||[])}},[]);
+ useEffect(()=>{load();if(!cloudReady)return;const ch=supabase.channel(`trip-${tripId}`).on('postgres_changes',{event:'*',schema:'public',table:'trip_stops',filter:`trip_id=eq.${tripId}`},load).on('postgres_changes',{event:'*',schema:'public',table:'trip_photos',filter:`trip_id=eq.${tripId}`},load).subscribe();return()=>supabase.removeChannel(ch)},[load]);
+ useEffect(()=>{const getRoute=async()=>{if(stops.length<2){setRoute(stops.map(s=>[s.latitude,s.longitude]));setRouteInfo(null);return}const coords=stops.map(s=>`${s.longitude},${s.latitude}`).join(';');try{const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`);if(!r.ok)throw Error();const j=await r.json();const best=j.routes?.[0];if(!best)throw Error();setRoute(best.geometry.coordinates.map(([lng,lat])=>[lat,lng]));setRouteInfo({distance:best.distance,duration:best.duration,fallback:false})}catch{setRoute(stops.map(s=>[s.latitude,s.longitude]));setRouteInfo({fallback:true})}};getRoute()},[stops]);
+ const search=async e=>{e.preventDefault();const q=query.trim();if(q.length<3){setError('Įrašyk bent 3 simbolius.');return}setSearching(true);setError('');try{const r=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=lt&q=${encodeURIComponent(q)}`);if(!r.ok)throw Error();const j=await r.json();setResults(j);if(!j.length)setError('Vietos rasti nepavyko. Pabandyk tikslesnį adresą.')}catch{setError('Paieška laikinai neveikia.')}finally{setSearching(false)}};
+ const addStop=async place=>{if(stops.some(s=>Math.abs(s.latitude-+place.lat)<.0001&&Math.abs(s.longitude-+place.lon)<.0001)){setError('Ši vieta jau pridėta.');return}setSaving(true);const payload={trip_id:tripId,position:stops.length,day_number:stops.length+1,location_name:place.display_name.split(',').slice(0,2).join(','),latitude:+place.lat,longitude:+place.lon,journal_note:''};const{error:e}=await supabase.from('trip_stops').insert(payload);setSaving(false);if(e)setError(e.message);else{setResults([]);setQuery('')}};
+ const patchStop=async(id,patch)=>{setStops(s=>s.map(x=>x.id===id?{...x,...patch}:x));const{error:e}=await supabase.from('trip_stops').update({...patch,updated_at:new Date().toISOString()}).eq('id',id);if(e){setError(e.message);load()}};
+ const move=async(index,dir)=>{const next=[...stops],to=index+dir;if(to<0||to>=next.length)return;[next[index],next[to]]=[next[to],next[index]];const normalized=next.map((s,i)=>({...s,position:i}));setStops(normalized);const results=await Promise.all(normalized.map(s=>supabase.from('trip_stops').update({position:s.position}).eq('id',s.id)));if(results.some(x=>x.error)){setError('Nepavyko pakeisti sustojimų tvarkos.');load()}};
+ const removeStop=async stop=>{if(!confirm(`Pašalinti „${stop.location_name}“ ir visas jo nuotraukas?`))return;const owned=photos.filter(p=>p.stop_id===stop.id);if(owned.length)await supabase.storage.from('trip-photos').remove(owned.map(p=>p.storage_path));const{error:e}=await supabase.from('trip_stops').delete().eq('id',stop.id);if(e)setError(e.message)};
+ const upload=async(stop,files)=>{const imgs=[...files].filter(f=>f.type.startsWith('image/'));if(!imgs.length)return;setSaving(true);for(const file of imgs){const ext=(file.name.split('.').pop()||'jpg').toLowerCase();const path=`${tripId}/${stop.id}/${crypto.randomUUID()}.${ext}`;const{error:ue}=await supabase.storage.from('trip-photos').upload(path,file,{cacheControl:'3600'});if(ue){setError(ue.message);continue}const{data}=supabase.storage.from('trip-photos').getPublicUrl(path);const{error:ie}=await supabase.from('trip_photos').insert({trip_id:tripId,stop_id:stop.id,storage_path:path,public_url:data.publicUrl});if(ie)setError(ie.message)}setSaving(false);load()};
+ const updateCaption=async(photo,caption)=>{setPhotos(p=>p.map(x=>x.id===photo.id?{...x,caption}:x));await supabase.from('trip_photos').update({caption}).eq('id',photo.id)};
+ const deletePhoto=async photo=>{if(!confirm('Tikrai pašalinti šią nuotrauką?'))return;await supabase.storage.from('trip-photos').remove([photo.storage_path]);await supabase.from('trip_photos').delete().eq('id',photo.id);const set=photos.filter(p=>p.stop_id===photo.stop_id&&p.id!==photo.id);setViewer(set.length?{stopId:photo.stop_id,index:Math.min(viewer?.index||0,set.length-1)}:null);load()};
+ const openViewer=(stopId,index)=>setViewer({stopId,index});
+ const viewed=viewer?photos.filter(p=>p.stop_id===viewer.stopId):[];const current=viewed[viewer?.index||0];
+ useEffect(()=>{if(!viewer)return;const key=e=>{if(e.key==='Escape')setViewer(null);if(e.key==='ArrowRight')setViewer(v=>({...v,index:(v.index+1)%viewed.length}));if(e.key==='ArrowLeft')setViewer(v=>({...v,index:(v.index-1+viewed.length)%viewed.length}))};addEventListener('keydown',key);return()=>removeEventListener('keydown',key)},[viewer,viewed.length]);
+ if(!cloudReady)return <section id="journal" className="studio-section"><div className="shell setup-card"><Map size={34}/><p className="eyebrow dark">BENDRAS KELIONĖS ŽURNALAS</p><h2>Reikia vieną kartą prijungti debesiją.</h2><p>Projektas paruoštas „Supabase“. Įvykdžius ZIP faile esančią instrukciją, visi penki galės matyti ir kelti tas pačias nuotraukas iš savo telefonų.</p><code>VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY</code></div></section>;
+ return <section id="journal" className="studio-section"><div className="shell"><div className="studio-head"><div><p className="eyebrow dark">KELIONĖS ŽEMĖLAPIS IR DIENORAŠTIS</p><h2>Mūsų kelias.<br/>Mūsų istorijos.</h2></div><p>Pridėkite sustojimus, kelionės užrašus ir nuotraukas. Viskas iškart matoma visai komandai.</p></div>
+ {error&&<div className="notice"><span>{error}</span><button onClick={()=>setError('')}><X size={16}/></button></div>}
+ <div className="studio-grid"><div className="map-panel"><form className="place-search" onSubmit={search}><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Miestas, vieta arba pilnas adresas"/><button disabled={searching}>{searching?<Loader2 className="spin" size={18}/>: 'Ieškoti'}</button></form>{results.length>0&&<div className="search-results">{results.map(r=><button key={r.place_id} onClick={()=>addStop(r)} disabled={saving}><MapPin size={16}/><span>{r.display_name}</span><Plus size={16}/></button>)}</div>}
+ <div className="map-wrap"><MapContainer center={[31.63,-7.99]} zoom={5} scrollWheelZoom className="leaflet-map"><TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>{route.length>1&&<Polyline positions={route} pathOptions={{color:'#9b4f32',weight:5,opacity:.9}}/>}{stops.map((s,i)=><Marker key={s.id} position={[s.latitude,s.longitude]} icon={markerIcon(i+1)} eventHandlers={{click:()=>setFocus(s)}}><Popup><strong>{s.location_name}</strong><br/>{s.stop_date||`Kelionės ${s.day_number||i+1} diena`}<br/><span>{s.journal_note||'Užrašo dar nėra.'}</span></Popup></Marker>)}<FitMap stops={stops} route={route} focus={focus}/></MapContainer>{stops.length>0&&<button className="fit-button" onClick={()=>window.__fitSaharaRoute?.()}><Maximize2 size={16}/> Rodyti visą maršrutą</button>}</div>
+ <div className="route-summary"><span><CarFront size={18}/>{routeInfo?.distance?`${(routeInfo.distance/1000).toFixed(0)} km`:'Atstumas atsiras pridėjus 2 vietas'}</span><span><Clock3 size={18}/>{routeInfo?.duration?`${Math.floor(routeInfo.duration/3600)} val. ${Math.round(routeInfo.duration%3600/60)} min.`:'Važiavimo laikas'}</span>{routeInfo?.fallback&&<small>Maršruto paslauga neatsakė – rodoma atsarginė linija.</small>}</div></div>
+ <div className="stops-panel"><div className="panel-title"><h3>Sustojimai</h3><span>{stops.length}</span></div>{!stops.length?<div className="empty-state"><MapPin size={30}/><strong>Maršrutas dar tuščias</strong><p>Surask pirmą vietą žemėlapyje ir pridėk ją kaip kelionės sustojimą.</p></div>:stops.map((s,i)=><article className="stop-editor" key={s.id}><div className="stop-number">{i+1}</div><div className="stop-fields"><strong>{s.location_name}</strong><div className="compact-fields"><label>Diena<input type="number" min="1" value={s.day_number||''} onChange={e=>patchStop(s.id,{day_number:+e.target.value||null})}/></label><label>Data<input type="date" value={s.stop_date||''} onChange={e=>patchStop(s.id,{stop_date:e.target.value||null})}/></label></div></div><div className="stop-actions"><button onClick={()=>move(i,-1)} disabled={i===0}><ChevronUp size={17}/></button><button onClick={()=>move(i,1)} disabled={i===stops.length-1}><ChevronDown size={17}/></button><button onClick={()=>removeStop(s)}><Trash2 size={17}/></button></div></article>)}</div></div>
+ <div className="journal-list">{stops.map((s,si)=>{const ps=photos.filter(p=>p.stop_id===s.id);return <article className="journal-card" key={s.id}><div className="journal-meta"><span>DIENA {s.day_number||si+1}</span><span>{s.stop_date||'Data nepasirinkta'}</span></div><div className="journal-top"><div><h3>{s.location_name}</h3><p>{ps.length} {ps.length===1?'nuotrauka':'nuotraukos'}</p></div><button className="map-button" onClick={()=>setFocus(s)}><MapPin size={16}/> Žemėlapyje</button></div><textarea value={s.journal_note||''} onChange={e=>setStops(x=>x.map(v=>v.id===s.id?{...v,journal_note:e.target.value}:v))} onBlur={e=>patchStop(s.id,{journal_note:e.target.value})} placeholder="Kas čia įvyko? Parašykit kelionės istoriją…"/>
+ <div className="editorial-gallery">{ps.length===0?<label className="photo-empty"><ImagePlus size={26}/><strong>Pridėti pirmas nuotraukas</strong><span>Galima pasirinkti kelias iš karto</span><input type="file" accept="image/*" multiple onChange={e=>upload(s,e.target.files)}/></label>:<><button className="featured-photo" onClick={()=>openViewer(s.id,0)}><img src={ps[0].public_url} alt={ps[0].caption||s.location_name}/>{ps[0].caption&&<span>{ps[0].caption}</span>}</button><div className="filmstrip">{ps.slice(1,7).map((p,j)=><button key={p.id} onClick={()=>openViewer(s.id,j+1)}><img src={p.public_url} alt={p.caption||''}/>{j===5&&ps.length>7?<span>+{ps.length-7}</span>:null}</button>)}<label className="add-photo"><Upload size={20}/><span>Įkelti</span><input type="file" accept="image/*" multiple onChange={e=>upload(s,e.target.files)}/></label></div></>}</div></article>})}</div></div>
+ {viewer&&current&&<PhotoViewer photos={viewed} index={viewer.index} setIndex={i=>setViewer(v=>({...v,index:i}))} close={()=>setViewer(null)} updateCaption={updateCaption} remove={()=>deletePhoto(current)}/>}</section>
 }
+function PhotoViewer({photos,index,setIndex,close,updateCaption,remove}){const p=photos[index],touch=useRef(null);return <div className="viewer" onMouseDown={e=>{if(e.target===e.currentTarget)close()}} onTouchStart={e=>touch.current=e.touches[0].clientX} onTouchEnd={e=>{const d=(touch.current||0)-e.changedTouches[0].clientX;if(Math.abs(d)>45)setIndex(d>0?(index+1)%photos.length:(index-1+photos.length)%photos.length)}}><button className="viewer-close" onClick={close}><X/></button><button className="viewer-prev" onClick={()=>setIndex((index-1+photos.length)%photos.length)}><ArrowLeft/></button><div className="viewer-content"><img src={p.public_url} alt={p.caption||''}/><div className="viewer-bar"><span>{index+1} / {photos.length}</span><input value={p.caption||''} onChange={e=>updateCaption(p,e.target.value)} placeholder="Nuotraukos aprašymas…"/><button onClick={remove}><Trash2 size={17}/> Pašalinti</button></div></div><button className="viewer-next" onClick={()=>setIndex((index+1)%photos.length)}><ArrowRight/></button></div>}
 
-function TripGallery() {
-  const [photos, setPhotos] = useState([]);
-
-  const addPhotos = (event) => {
-    const files = Array.from(event.target.files || []).filter(file => file.type.startsWith('image/'));
-    const next = files.map(file => ({ id: crypto.randomUUID(), name: file.name, url: URL.createObjectURL(file) }));
-    setPhotos(current => [...current, ...next]);
-    event.target.value = '';
-  };
-
-  const removePhoto = (id) => {
-    setPhotos(current => {
-      const photo = current.find(item => item.id === id);
-      if (photo) URL.revokeObjectURL(photo.url);
-      return current.filter(item => item.id !== id);
-    });
-  };
-
-  useEffect(() => () => photos.forEach(photo => URL.revokeObjectURL(photo.url)), [photos]);
-
-  return (
-    <section id="gallery" className="gallery-section">
-      <div className="shell gallery-wrap">
-        <div className="gallery-head">
-          <div>
-            <p className="eyebrow dark">KELIONĖS ALBUMAS</p>
-            <h2>Čia gyvens<br />mūsų nuotraukos.</h2>
-          </div>
-          <div className="gallery-copy">
-            <p>Kelionės metu kiekvienas galės pasirinkti nuotraukas iš telefono ir iškart matyti jas albume.</p>
-            <label className="upload-button">
-              <Upload size={18} /> Įkelti nuotraukas
-              <input type="file" accept="image/*" multiple onChange={addPhotos} />
-            </label>
-          </div>
-        </div>
-
-        {photos.length === 0 ? (
-          <label className="gallery-empty">
-            <ImagePlus size={38} />
-            <strong>Kol kas čia tuščia.</strong>
-            <span>Pirmos nuotraukos atsiras prasidėjus kelionei.</span>
-            <input type="file" accept="image/*" multiple onChange={addPhotos} />
-          </label>
-        ) : (
-          <div className="photo-grid">
-            {photos.map(photo => (
-              <figure key={photo.id} className="photo-item">
-                <img src={photo.url} alt={photo.name} />
-                <button type="button" aria-label="Pašalinti nuotrauką" onClick={() => removePhoto(photo.id)}><X size={16} /></button>
-              </figure>
-            ))}
-          </div>
-        )}
-        <p className="gallery-note">Šiuo metu pasirinktos nuotraukos lieka šiame įrenginyje. Kad albumą vienodai matytų visa komanda, prieš kelionę reikės prijungti bendrą debesijos albumą.</p>
-      </div>
-    </section>
-  );
-}
-
-function App() {
-  const countdown = useCountdown(new Date('2026-08-24T02:30:00+03:00'));
-
-  return (
-    <main>
-      <section className="hero">
-        <img className="hero-image" src="/images/group-new.jpg" alt="Kelionės komanda Maroke" />
-        <div className="hero-overlay" />
-        <nav className="nav shell">
-          <span className="brand">KNS / 2026</span>
-          <div className="nav-links">
-            <a href="#crew">Komanda</a>
-            <a href="#route">Maršrutas</a>
-            <a href="#car">Dusteris</a>
-            <a href="#gallery">Albumas</a>
-          </div>
-        </nav>
-        <div className="hero-content shell">
-          <p className="eyebrow">24–31 RUGPJŪČIO · 5 DRAUGAI · 1 NUOTYKIS</p>
-          <h1>Iš Kauno<br />į Saharą</h1>
-          <p className="lead">Penki draugai, viena Dacia ir maršrutas, kuris prasideda Kauno autobusų stotyje, o baigiasi tarp Sacharos kopų.</p>
-          <div className="hero-actions">
-            <a className="primary" href="#route">Žiūrėti maršrutą <ArrowDown size={18} /></a>
-            <span className="tiny">Inshallah, grįšim.</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="countdown-section">
-        <div className="shell countdown-wrap">
-          <div><p className="eyebrow dark">IKI IŠVYKIMO</p><h2>Laikas tiksi.</h2></div>
-          <div className="countdown">
-            {Object.entries(countdown).map(([key, val]) => (
-              <div className="time" key={key}><strong>{String(val).padStart(2,'0')}</strong><span>{{days:'dienos',hours:'val.',minutes:'min.',seconds:'sek.'}[key]}</span></div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="crew" className="section shell">
-        <div className="section-head">
-          <p className="eyebrow dark">KOMANDA</p>
-          <h2>Penki žmonės.<br />Penki skirtingi darbai.</h2>
-          <p>Ir maždaug nulis šansų, kad viskas vyks tiksliai pagal planą.</p>
-        </div>
-        <div className="crew-grid">
-          {crew.map((person, index) => {
-            const Icon = person.icon;
-            return (
-              <article className={`crew-card card-${index+1}`} key={person.name}>
-                <img src={person.image} alt={person.name} />
-                <div className="crew-shade" />
-                <div className="crew-copy">
-                  <div className="crew-icon"><Icon size={18} /></div>
-                  <span>{person.role}</span><h3>{person.name}</h3><p>{person.text}</p>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section id="route" className="route-section">
-        <div className="shell route-layout">
-          <div className="route-intro"><p className="eyebrow">MARŠRUTAS</p><h2>Nuo stoties<br />iki kopų.</h2><p>Autobusai, keturi oro uostai, ilgi persėdimai ir keli šimtai kilometrų per Maroką.</p></div>
-          <div className="route-list">
-            {route.map((stop, i) => {
-              const Icon = stop.icon;
-              return <div className="route-stop" key={stop.place}><div className="route-no">{String(i+1).padStart(2,'0')}</div><div className="route-icon"><Icon size={20}/></div><div><h3>{stop.place}</h3><p>{stop.note}</p></div></div>;
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section id="car" className="car-section">
-        <div className="shell car-card">
-          <div className="car-copy"><p className="eyebrow dark">MŪSŲ KOVOS VEŽIMAS</p><h2>Dacia Duster<br />2026</h2><p>Penki žmonės, bagažas savaitei, Atlaso kalnų serpantinai ir ilgas kelias iki dykumos. Automobilis dar nežino, kas jo laukia.</p><div className="car-tags"><span>5 keleiviai</span><span>SUV</span><span>Maroko keliai</span><span>Dideli planai</span></div></div>
-          <div className="car-visual" aria-label="Stilizuotas Dacia Duster siluetas"><div className="sun"/><div className="dune dune-one"/><div className="dune dune-two"/><CarFront size={148} strokeWidth={1.2}/><strong>DUSTER</strong></div>
-        </div>
-      </section>
-
-      <TripGallery />
-
-      <footer><div className="shell footer-wrap"><div><p className="eyebrow">PASKUTINIS PLANAS</p><h2>Važiuojam ir žiūrim.</h2></div><p>Kaunas → Varšuva → Malpensa → Marakešas → Sahara → Bulgarija → Lenkija → Kaunas</p></div></footer>
-    </main>
-  );
-}
-
-createRoot(document.getElementById('root')).render(<App />);
+function App(){const cd=useCountdown(new Date('2026-08-24T02:30:00+03:00'));return <main><section className="hero"><img className="hero-image" src="/images/group-new.jpg"/><div className="hero-overlay"/><nav className="nav shell"><span className="brand">KNS / 2026</span><div className="nav-links"><a href="#crew">Komanda</a><a href="#route">Maršrutas</a><a href="#car">Dusteris</a><a href="#journal">Žurnalas</a></div></nav><div className="hero-content shell"><p className="eyebrow">24–31 RUGPJŪČIO · 5 DRAUGAI · 1 NUOTYKIS</p><h1>Iš Kauno<br/>į Saharą</h1><p className="lead">Penki draugai, viena Dacia ir maršrutas, kuris prasideda Kauno autobusų stotyje, o baigiasi tarp Sacharos kopų.</p><div className="hero-actions"><a className="primary" href="#journal">Atidaryti kelionės žurnalą <ArrowDown size={18}/></a><span className="tiny">Inshallah, grįšim.</span></div></div></section><section className="countdown-section"><div className="shell countdown-wrap"><div><p className="eyebrow dark">IKI IŠVYKIMO</p><h2>Laikas tiksi.</h2></div><div className="countdown">{Object.entries(cd).map(([k,v])=><div className="time" key={k}><strong>{String(v).padStart(2,'0')}</strong><span>{{days:'dienos',hours:'val.',minutes:'min.',seconds:'sek.'}[k]}</span></div>)}</div></div></section>
+<section id="crew" className="section shell"><div className="section-head"><p className="eyebrow dark">KOMANDA</p><h2>Penki žmonės.<br/>Penki skirtingi darbai.</h2><p>Ir maždaug nulis šansų, kad viskas vyks tiksliai pagal planą.</p></div><div className="crew-grid">{crew.map((p,i)=>{const I=p.icon;return <article className={`crew-card card-${i+1}`} key={p.name}><img src={p.image}/><div className="crew-shade"/><div className="crew-copy"><div className="crew-icon"><I size={18}/></div><span>{p.role}</span><h3>{p.name}</h3><p>{p.text}</p></div></article>})}</div></section>
+<section id="route" className="route-section"><div className="shell route-layout"><div className="route-intro"><p className="eyebrow">MARŠRUTAS</p><h2>Nuo stoties<br/>iki kopų.</h2><p>Autobusai, keturi oro uostai, ilgi persėdimai ir keli šimtai kilometrų per Maroką.</p></div><div className="route-list">{staticRoute.map(([a,b,I],i)=><div className="route-stop" key={a}><div className="route-no">{String(i+1).padStart(2,'0')}</div><div className="route-icon"><I size={20}/></div><div><h3>{a}</h3><p>{b}</p></div></div>)}</div></div></section>
+<section id="car" className="car-section"><div className="shell car-card"><div className="car-copy"><p className="eyebrow dark">MŪSŲ KOVOS VEŽIMAS</p><h2>Dacia Duster<br/>2026</h2><p>Penki žmonės, bagažas savaitei, Atlaso kalnų serpantinai ir ilgas kelias iki dykumos. Automobilis dar nežino, kas jo laukia.</p><div className="car-tags"><span>5 keleiviai</span><span>SUV</span><span>Maroko keliai</span><span>Dideli planai</span></div></div><div className="car-visual"><div className="sun"/><div className="dune dune-one"/><div className="dune dune-two"/><CarFront size={148} strokeWidth={1.2}/><strong>DUSTER</strong></div></div></section><TripStudio/><footer><div className="shell footer-wrap"><div><p className="eyebrow">PASKUTINIS PLANAS</p><h2>Važiuojam ir žiūrim.</h2></div><p>Kaunas → Varšuva → Malpensa → Marakešas → Sahara → Bulgarija → Lenkija → Kaunas</p></div></footer></main>}
+createRoot(document.getElementById('root')).render(<App/>);
