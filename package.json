@@ -1,27 +1,19 @@
 {
-  "name": "sahara-roadtrip",
+  "name": "is-kauno-i-sahara",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "framer-motion": "latest",
-    "leaflet": "latest",
-    "lucide-react": "latest",
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "react-leaflet": "latest"
+    "lucide-react": "latest"
   },
-  "devDependencies": {
-    "@types/leaflet": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "@vitejs/plugin-react": "latest",
-    "typescript": "latest",
-    "vite": "latest"
-  }
+  "devDependencies": {}
 }
