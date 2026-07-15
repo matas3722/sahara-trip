@@ -1,6 +1,6 @@
 # Iš Kauno į Saharą
 
-Nauja React + Vite kelionės svetainė.
+Atnaujinta kelionės svetainė su nauja bendra nuotrauka, pakeista Adrijaus nuotrauka, komandos aprašymais ir kelionės albumo skiltimi.
 
 ## Paleidimas
 
@@ -9,13 +9,6 @@ npm install
 npm run dev
 ```
 
-## Įkėlimas į Vercel
+## Svarbu dėl bendro albumo
 
-1. Sukurk naują GitHub repozitoriją.
-2. Sukelk visus šio aplanko failus.
-3. Vercel pasirink „Add New Project“ ir prijunk repozitoriją.
-4. Framework preset: Vite.
-5. Build command: `npm run build`.
-6. Output directory: `dist`.
-
-Nuotraukos yra `public/images` aplanke.
+Dabartinis nuotraukų įkėlimas veikia kaip peržiūra naršyklėje: pasirinktos nuotraukos rodomos tame įrenginyje, bet nėra sinchronizuojamos tarp visų telefonų. Tikram bendram albumui reikės prijungti debesijos paslaugą, pavyzdžiui, Supabase, Cloudinary arba bendrą Google Photos albumą.
